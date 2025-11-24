@@ -30,15 +30,15 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:py-12">
       <div className="max-w-md w-full">
         <div className="card">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl mb-4">
-              <span className="text-white font-bold text-2xl">X</span>
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl mb-4">
+              <span className="text-white font-bold text-xl sm:text-2xl">X</span>
             </div>
-            <h2 className="text-3xl font-bold text-slate-800">Welcome Back</h2>
-            <p className="text-slate-600 mt-2">Login to Xavier's NMMS Scanner</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">Welcome Back</h2>
+            <p className="text-slate-600 mt-2 text-sm sm:text-base">Login to Xavier's NMMS Scanner</p>
           </div>
 
           {error && (

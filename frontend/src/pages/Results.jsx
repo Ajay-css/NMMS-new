@@ -41,10 +41,10 @@ const Results = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-slate-800 mb-2">Scan Results</h1>
-        <p className="text-slate-600">View all scanned OMR sheet results</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <div className="mb-4 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-2">Scan Results</h1>
+        <p className="text-sm sm:text-base text-slate-600">View all scanned OMR sheet results</p>
       </div>
 
       {loading ? (
@@ -57,7 +57,8 @@ const Results = () => {
         </div>
       ) : (
         <>
-          <div className="card mb-6">
+          {/* Desktop Table View */}
+          <div className="card mb-6 hidden md:block">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -105,46 +106,84 @@ const Results = () => {
               </table>
             </div>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {results.map((result) => (
+              <div key={result._id} className="card">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{result.studentName}</h3>
+                      <p className="text-sm text-slate-600 mt-1">{result.answerKeyId?.name || 'N/A'}</p>
+                    </div>
+                    <span className={`font-semibold text-lg ${
+                      result.percentage >= 80 ? 'text-green-600' :
+                      result.percentage >= 60 ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`}>
+                      {result.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600">
+                      Score: <span className="font-semibold text-slate-800">{result.correctAnswers}/{result.totalQuestions}</span>
+                    </span>
+                    <span className="text-slate-500">
+                      {new Date(result.scannedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => viewDetails(result._id)}
+                    className="btn-primary w-full text-sm"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
 
       {/* Result Details Modal */}
       {selectedResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-slate-800">Result Details</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-4 sm:p-6 flex justify-between items-center">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Result Details</h2>
               <button
                 onClick={closeDetails}
-                className="text-slate-500 hover:text-slate-700 text-2xl"
+                className="text-slate-500 hover:text-slate-700 text-2xl sm:text-3xl"
+                aria-label="Close"
               >
                 ×
               </button>
             </div>
             
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-green-600">{selectedResult.correctAnswers}</div>
-                  <div className="text-sm text-green-700">Correct</div>
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-green-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-green-600">{selectedResult.correctAnswers}</div>
+                  <div className="text-xs sm:text-sm text-green-700">Correct</div>
                 </div>
-                <div className="bg-red-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-red-600">{selectedResult.wrongAnswers}</div>
-                  <div className="text-sm text-red-700">Wrong</div>
+                <div className="bg-red-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-red-600">{selectedResult.wrongAnswers}</div>
+                  <div className="text-xs sm:text-sm text-red-700">Wrong</div>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-blue-600">{selectedResult.totalQuestions}</div>
-                  <div className="text-sm text-blue-700">Total</div>
+                <div className="bg-blue-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">{selectedResult.totalQuestions}</div>
+                  <div className="text-xs sm:text-sm text-blue-700">Total</div>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-purple-600">{selectedResult.percentage.toFixed(1)}%</div>
-                  <div className="text-sm text-purple-700">Score</div>
+                <div className="bg-purple-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-purple-600">{selectedResult.percentage.toFixed(1)}%</div>
+                  <div className="text-xs sm:text-sm text-purple-700">Score</div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-slate-800 mb-4">Answer Breakdown</h3>
-                <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-3 sm:mb-4">Answer Breakdown</h3>
+                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-1.5 sm:gap-2">
                   {selectedResult.answers.map((answer, index) => (
                     <div
                       key={index}

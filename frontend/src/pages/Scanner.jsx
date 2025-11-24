@@ -134,17 +134,17 @@ const Scanner = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-slate-800 mb-2">OMR Scanner</h1>
-        <p className="text-slate-600">Scan OMR sheets and get instant results</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <div className="mb-4 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-2">OMR Scanner</h1>
+        <p className="text-sm sm:text-base text-slate-600">Scan OMR sheets and get instant results</p>
       </div>
 
       {!result ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Scanner Section */}
           <div className="card">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">Scan OMR Sheet</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Scan OMR Sheet</h2>
             
             <div className="space-y-6">
               <div>
@@ -195,8 +195,8 @@ const Scanner = () => {
                         className="w-full h-auto"
                       />
                       {/* Scanning overlay */}
-                      <div className="absolute top-4 left-4 right-4">
-                        <div className={`p-3 rounded-lg ${
+                      <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4">
+                        <div className={`p-2 sm:p-3 rounded-lg ${
                           isProcessing 
                             ? 'bg-blue-500 text-white' 
                             : 'bg-green-500 text-white'
@@ -204,13 +204,13 @@ const Scanner = () => {
                           <div className="flex items-center justify-center space-x-2">
                             {isProcessing ? (
                               <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                <span className="font-semibold">Processing...</span>
+                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-2 border-white border-t-transparent"></div>
+                                <span className="font-semibold text-xs sm:text-sm">Processing...</span>
                               </>
                             ) : (
                               <>
-                                <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                                <span className="font-semibold">Scanning...</span>
+                                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full animate-pulse"></div>
+                                <span className="font-semibold text-xs sm:text-sm">Scanning...</span>
                               </>
                             )}
                           </div>
@@ -233,14 +233,14 @@ const Scanner = () => {
                   </div>
                 )}
                 
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
                   {!scanning ? (
                     <button
                       onClick={() => {
                         setScanning(true);
                         setScanStatus('Ready to scan');
                       }}
-                      className="btn-primary"
+                      className="btn-primary w-full sm:w-auto"
                       disabled={loading || !selectedAnswerKey}
                     >
                       Start Scanning
@@ -256,14 +256,14 @@ const Scanner = () => {
                             scanIntervalRef.current = null;
                           }
                         }}
-                        className="btn-secondary"
+                        className="btn-secondary w-full sm:w-auto"
                         disabled={isProcessing}
                       >
                         Stop Scanning
                       </button>
                       <button
                         onClick={() => setFacingMode(facingMode === 'user' ? 'environment' : 'user')}
-                        className="btn-secondary"
+                        className="btn-secondary w-full sm:w-auto"
                         disabled={isProcessing}
                       >
                         Switch Camera
@@ -277,7 +277,7 @@ const Scanner = () => {
 
           {/* Instructions */}
           <div className="card">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">Instructions</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Instructions</h2>
             <div className="space-y-4 text-slate-600">
               <div className="flex items-start space-x-3">
                 <span className="text-primary-600 font-bold">1.</span>
@@ -328,29 +328,29 @@ const Scanner = () => {
           </div>
 
           {/* Score Card */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl text-center">
-              <div className="text-3xl font-bold">{result.correctAnswers}</div>
-              <div className="text-sm opacity-90">Correct</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 sm:p-6 rounded-xl text-center">
+              <div className="text-2xl sm:text-3xl font-bold">{result.correctAnswers}</div>
+              <div className="text-xs sm:text-sm opacity-90">Correct</div>
             </div>
-            <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-6 rounded-xl text-center">
-              <div className="text-3xl font-bold">{result.wrongAnswers}</div>
-              <div className="text-sm opacity-90">Wrong</div>
+            <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-4 sm:p-6 rounded-xl text-center">
+              <div className="text-2xl sm:text-3xl font-bold">{result.wrongAnswers}</div>
+              <div className="text-xs sm:text-sm opacity-90">Wrong</div>
             </div>
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl text-center">
-              <div className="text-3xl font-bold">{result.totalQuestions}</div>
-              <div className="text-sm opacity-90">Total</div>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 sm:p-6 rounded-xl text-center">
+              <div className="text-2xl sm:text-3xl font-bold">{result.totalQuestions}</div>
+              <div className="text-xs sm:text-sm opacity-90">Total</div>
             </div>
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl text-center">
-              <div className="text-3xl font-bold">{result.percentage.toFixed(1)}%</div>
-              <div className="text-sm opacity-90">Score</div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 sm:p-6 rounded-xl text-center">
+              <div className="text-2xl sm:text-3xl font-bold">{result.percentage.toFixed(1)}%</div>
+              <div className="text-xs sm:text-sm opacity-90">Score</div>
             </div>
           </div>
 
           {/* Detailed Results */}
           <div className="mb-6">
-            <h3 className="text-xl font-bold text-slate-800 mb-4">Answer Details</h3>
-            <div className="grid grid-cols-5 md:grid-cols-10 gap-2 max-h-96 overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-3 sm:mb-4">Answer Details</h3>
+            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-1.5 sm:gap-2 max-h-96 overflow-y-auto">
               {result.answers.map((answer, index) => (
                 <div
                   key={index}

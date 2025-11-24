@@ -109,16 +109,16 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-slate-800 mb-2">Admin Dashboard</h1>
-        <p className="text-slate-600">Upload question papers and manage answer keys</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <div className="mb-4 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-2">Admin Dashboard</h1>
+        <p className="text-sm sm:text-base text-slate-600">Upload question papers and manage answer keys</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upload Section */}
         <div className="card">
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">Upload Question Paper</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Upload Question Paper</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
 
         {/* Answer Keys List */}
         <div className="card">
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">Answer Keys</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Answer Keys</h2>
           
           {loading ? (
             <div className="text-center py-8">

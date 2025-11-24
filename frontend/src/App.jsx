@@ -16,11 +16,18 @@ function App() {
         <div className="min-h-screen">
           <Toaster
             position="top-right"
+            containerStyle={{
+              top: 20,
+              right: 20,
+            }}
             toastOptions={{
               duration: 4000,
               style: {
                 background: '#363636',
                 color: '#fff',
+                fontSize: '14px',
+                padding: '12px 16px',
+                maxWidth: '90vw',
               },
               success: {
                 duration: 3000,
