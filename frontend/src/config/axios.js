@@ -1,7 +1,8 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 // Get API URL from environment variable or use default
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://nmms-server-new.onrender.com';
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -32,7 +33,14 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Unauthorized - clear token and redirect to login
       localStorage.removeItem('token');
+      toast.error('Session expired. Please login again.');
       window.location.href = '/login';
+    } else if (error.response?.status >= 500) {
+      // Server errors
+      toast.error('Server error. Please try again later.');
+    } else if (!error.response) {
+      // Network errors
+      toast.error('Network error. Please check your connection.');
     }
     return Promise.reject(error);
   }

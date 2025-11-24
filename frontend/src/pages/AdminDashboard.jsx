@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../config/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +27,7 @@ const AdminDashboard = () => {
       setAnswerKeys(response.data);
     } catch (error) {
       console.error('Error fetching answer keys:', error);
+      toast.error('Failed to load answer keys');
     } finally {
       setLoading(false);
     }
@@ -35,10 +37,12 @@ const AdminDashboard = () => {
     const files = Array.from(e.target.files);
     if (files.length !== 4) {
       setUploadStatus('Please select exactly 4 pages');
+      toast.error('Please select exactly 4 pages');
       return;
     }
     setFormData({ ...formData, pages: files });
     setUploadStatus('');
+    toast.success(`${files.length} files selected`);
   };
 
   const handleSubmit = async (e) => {
@@ -46,11 +50,13 @@ const AdminDashboard = () => {
     
     if (formData.pages.length !== 4) {
       setUploadStatus('Please upload exactly 4 pages');
+      toast.error('Please upload exactly 4 pages');
       return;
     }
 
     setUploading(true);
     setUploadStatus('Uploading and processing... This may take a few minutes.');
+    toast.loading('Uploading and processing question paper...', { id: 'upload' });
 
     try {
       const uploadFormData = new FormData();
@@ -68,9 +74,12 @@ const AdminDashboard = () => {
       setUploadStatus('✅ Question paper processed successfully! AI has detected questions and generated answer key.');
       setFormData({ name: '', pages: [] });
       document.getElementById('file-input').value = '';
+      toast.success('Question paper processed successfully! Answer key created.', { id: 'upload' });
       fetchAnswerKeys();
     } catch (error) {
-      setUploadStatus('❌ Error: ' + (error.response?.data?.message || 'Failed to upload'));
+      const errorMsg = error.response?.data?.message || 'Failed to upload';
+      setUploadStatus('❌ Error: ' + errorMsg);
+      toast.error(errorMsg, { id: 'upload' });
     } finally {
       setUploading(false);
     }
@@ -81,9 +90,11 @@ const AdminDashboard = () => {
 
     try {
       await api.delete(`/api/admin/answer-keys/${id}`);
+      toast.success('Answer key deleted successfully');
       fetchAnswerKeys();
     } catch (error) {
       console.error('Error deleting answer key:', error);
+      toast.error('Failed to delete answer key');
     }
   };
 

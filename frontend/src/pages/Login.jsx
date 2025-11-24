@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
@@ -18,9 +19,11 @@ const Login = () => {
     const result = await login(email, password);
     
     if (result.success) {
+      toast.success('Login successful!');
       navigate('/scanner');
     } else {
       setError(result.error);
+      toast.error(result.error || 'Login failed');
     }
     
     setLoading(false);

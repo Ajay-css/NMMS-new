@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
+import toast from 'react-hot-toast';
 import api from '../config/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -33,9 +34,12 @@ const Scanner = () => {
       setAnswerKeys(response.data);
       if (response.data.length > 0) {
         setSelectedAnswerKey(response.data[0]._id);
+      } else {
+        toast.error('No answer keys found. Please upload a question paper first.');
       }
     } catch (error) {
       console.error('Error fetching answer keys:', error);
+      toast.error('Failed to load answer keys');
     }
   };
 
@@ -67,6 +71,7 @@ const Scanner = () => {
       setResult(response.data.result);
       setScanning(false);
       setScanStatus('Scan completed!');
+      toast.success(`Scan completed! Score: ${response.data.result.percentage.toFixed(1)}%`);
       
       // Stop auto-scanning after successful scan
       if (scanIntervalRef.current) {
@@ -76,6 +81,10 @@ const Scanner = () => {
     } catch (error) {
       console.error('Scan error:', error);
       setScanStatus('Scanning... Position OMR sheet in view');
+      // Only show error toast if it's a significant error, not just "no sheet detected"
+      if (error.response?.status !== 400) {
+        toast.error(error.response?.data?.message || 'Failed to process OMR sheet', { duration: 2000 });
+      }
       // Continue scanning on error - don't stop the process
     } finally {
       setIsProcessing(false);

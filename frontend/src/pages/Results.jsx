@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../config/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,6 +20,7 @@ const Results = () => {
       setResults(response.data);
     } catch (error) {
       console.error('Error fetching results:', error);
+      toast.error('Failed to load scan results');
     } finally {
       setLoading(false);
     }
@@ -30,6 +32,7 @@ const Results = () => {
       setSelectedResult(response.data);
     } catch (error) {
       console.error('Error fetching result details:', error);
+      toast.error('Failed to load result details');
     }
   };
 
