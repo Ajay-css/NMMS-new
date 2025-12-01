@@ -35,28 +35,39 @@ const AdminDashboard = () => {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length !== 4) {
-      setUploadStatus('Please select exactly 4 pages');
-      toast.error('Please select exactly 4 pages');
+    if (files.length === 0) {
+      setUploadStatus('Please select at least one page');
+      toast.error('Please select at least one page');
+      return;
+    }
+    if (files.length > 20) {
+      setUploadStatus('Maximum 20 pages allowed');
+      toast.error('Maximum 20 pages allowed');
       return;
     }
     setFormData({ ...formData, pages: files });
     setUploadStatus('');
-    toast.success(`${files.length} files selected`);
+    toast.success(`${files.length} page${files.length > 1 ? 's' : ''} selected`);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (formData.pages.length !== 4) {
-      setUploadStatus('Please upload exactly 4 pages');
-      toast.error('Please upload exactly 4 pages');
+
+    if (formData.pages.length === 0) {
+      setUploadStatus('Please upload at least one page');
+      toast.error('Please upload at least one page');
+      return;
+    }
+
+    if (formData.pages.length > 20) {
+      setUploadStatus('Maximum 20 pages allowed');
+      toast.error('Maximum 20 pages allowed');
       return;
     }
 
     setUploading(true);
-    setUploadStatus('Uploading and processing... This may take a few minutes.');
-    toast.loading('Uploading and processing question paper...', { id: 'upload' });
+    setUploadStatus(`Uploading and processing ${formData.pages.length} page${formData.pages.length > 1 ? 's' : ''}... This may take a few minutes.`);
+    toast.loading('Processing question paper with AI...', { id: 'upload' });
 
     try {
       const uploadFormData = new FormData();
@@ -68,18 +79,21 @@ const AdminDashboard = () => {
       const response = await api.post('/api/admin/upload-question-paper', uploadFormData, {
         headers: {
           'Content-Type': 'multipart/form-data'
-        }
+        },
+        timeout: 300000 // 5 minutes timeout for AI processing
       });
 
-      setUploadStatus('✅ Question paper processed successfully! AI has detected questions and generated answer key.');
+      const questionCount = response.data?.answerKey?.totalQuestions || 'multiple';
+      setUploadStatus(`✅ Success! AI extracted ${questionCount} questions with text and diagrams.`);
       setFormData({ name: '', pages: [] });
       document.getElementById('file-input').value = '';
-      toast.success('Question paper processed successfully! Answer key created.', { id: 'upload' });
+      toast.success(`Answer key created with ${questionCount} questions!`, { id: 'upload' });
       fetchAnswerKeys();
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Failed to upload';
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to process question paper';
       setUploadStatus('❌ Error: ' + errorMsg);
       toast.error(errorMsg, { id: 'upload' });
+      console.error('Upload error:', error);
     } finally {
       setUploading(false);
     }
@@ -119,7 +133,7 @@ const AdminDashboard = () => {
         {/* Upload Section */}
         <div className="card">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Upload Question Paper</h2>
-          
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -136,19 +150,19 @@ const AdminDashboard = () => {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Upload 4 Pages (PDF or Images)
+                Upload Question Paper Pages (1-20 images)
               </label>
               <input
                 id="file-input"
                 type="file"
                 multiple
-                accept="image/*,.pdf"
+                accept="image/*"
                 onChange={handleFileChange}
                 className="input-field"
                 required
               />
               <p className="mt-2 text-sm text-slate-500">
-                Selected: {formData.pages.length} file(s)
+                Selected: {formData.pages.length} page(s) • Supports JPG, PNG, WebP
               </p>
             </div>
 
@@ -166,18 +180,26 @@ const AdminDashboard = () => {
 
             <button
               type="submit"
-              disabled={uploading || formData.pages.length !== 4}
-              className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={uploading || formData.pages.length === 0}
+              className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {uploading ? 'Processing with AI...' : 'Upload & Process with AI'}
+              {uploading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing with AI...
+                </>
+              ) : 'Upload & Process with AI'}
             </button>
           </form>
 
           <div className="mt-6 p-4 bg-slate-50 rounded-lg">
             <p className="text-sm text-slate-600">
-              <strong>How it works:</strong> Upload 4 pages of the question paper. 
-              Our AI will automatically detect questions and options, search for correct answers, 
-              and create an answer key with 100 questions.
+              <strong>How it works:</strong> Upload 1-20 pages of your question paper. 
+              Our AI (Gemini 2.5 Flash) will automatically extract questions with text AND diagrams, 
+              solve them, and create a complete answer key.
             </p>
           </div>
         </div>
@@ -185,7 +207,7 @@ const AdminDashboard = () => {
         {/* Answer Keys List */}
         <div className="card">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Answer Keys</h2>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
@@ -224,4 +246,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

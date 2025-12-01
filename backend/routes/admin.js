@@ -33,23 +33,23 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|pdf/;
+    const allowedTypes = /jpeg|jpg|png|webp|heic/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image files (jpeg, jpg, png) and PDF are allowed'));
+      cb(new Error('Only image files (jpeg, jpg, png, webp) are allowed'));
     }
   }
 });
 
-// Upload question paper (4 pages)
-router.post('/upload-question-paper', authenticate, isAdmin, upload.array('pages', 4), async (req, res) => {
+// Upload question paper (flexible pages)
+router.post('/upload-question-paper', authenticate, isAdmin, upload.array('pages', 20), async (req, res) => {
   try {
-    if (!req.files || req.files.length !== 4) {
-      return res.status(400).json({ message: 'Please upload exactly 4 pages' });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'Please upload at least one page' });
     }
 
     const { name } = req.body;
@@ -88,7 +88,7 @@ router.get('/answer-keys', authenticate, isAdmin, async (req, res) => {
     const answerKeys = await AnswerKey.find()
       .populate('uploadedBy', 'username')
       .sort({ createdAt: -1 });
-    
+
     res.json(answerKeys);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -100,11 +100,11 @@ router.get('/answer-keys/:id', authenticate, async (req, res) => {
   try {
     const answerKey = await AnswerKey.findById(req.params.id)
       .populate('uploadedBy', 'username');
-    
+
     if (!answerKey) {
       return res.status(404).json({ message: 'Answer key not found' });
     }
-    
+
     res.json(answerKey);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -115,11 +115,11 @@ router.get('/answer-keys/:id', authenticate, async (req, res) => {
 router.delete('/answer-keys/:id', authenticate, isAdmin, async (req, res) => {
   try {
     const answerKey = await AnswerKey.findByIdAndDelete(req.params.id);
-    
+
     if (!answerKey) {
       return res.status(404).json({ message: 'Answer key not found' });
     }
-    
+
     res.json({ message: 'Answer key deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

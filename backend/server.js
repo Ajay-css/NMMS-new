@@ -16,15 +16,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS Configuration for Production
-const allowedOrigins = process.env.FRONTEND_URL 
+// CORS Configuration
+const allowedOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-  : ['http://localhost:3000'];
-
-// Add default production frontend URL if not in env
-if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
-  allowedOrigins.push('https://xaviers-nmms-scanner.vercel.app');
-}
+  : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'];
 
 console.log('🌐 Allowed CORS Origins:', allowedOrigins);
 
@@ -34,7 +29,7 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -84,8 +79,8 @@ app.use('/api/scanner', scannerRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'Xavier\'s NMMS Scanner API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'

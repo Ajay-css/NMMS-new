@@ -1,159 +1,251 @@
-# Xavier's NMMS Scanner
+# NMMS Scanner - Production Ready Setup
 
-A comprehensive MERN stack application for scanning and evaluating OMR (Optical Mark Recognition) sheets with AI-powered answer key generation.
+## 🎯 Overview
+AI-powered OMR sheet scanning application that uses **Gemini 1.5 Flash** to extract questions from question papers (including text AND diagrams) and automatically generate answer keys.
 
-## Features
+## ✨ Key Features
+- **Multimodal AI Processing**: Handles both text and diagram-based questions
+- **Flexible Upload**: Upload 1-20 pages of question papers
+- **Automatic Answer Generation**: AI solves questions and creates answer keys
+- **OMR Sheet Scanning**: Scan student answer sheets and compare with answer keys
+- **Real-time Results**: Instant scoring and detailed analytics
 
-### Admin Features
-- **Authentication**: Secure admin login/registration
-- **Question Paper Upload**: Upload 4-page question papers (PDF or images)
-- **AI-Powered Processing**: Automatic question and option detection using OCR
-- **Answer Key Generation**: AI finds correct answers using Google Gemini and stores answer keys (100 questions with 4 options each)
+## 🚀 Quick Start
 
-### Scanner Features
-- **OMR Sheet Scanning**: Real-time camera scanning with automatic processing
-- **Instant Results**: Compare scanned answers with stored answer keys
-- **Detailed Analysis**: View correct/wrong answers with percentage scores
-- **Result History**: Track all scanned results
+### Prerequisites
+- Node.js 18+ and npm
+- MongoDB database
+- Google Gemini API key ([Get it here](https://makersuite.google.com/app/apikey))
 
-## Tech Stack
+### Installation
 
-- **Frontend**: React 18 + Vite + Tailwind CSS v3
-- **Backend**: Express.js (ES Modules)
-- **Database**: MongoDB with Mongoose
-- **AI**: Google Gemini 1.5 Flash for answer detection
-- **OCR**: Tesseract.js for text and number recognition
-- **Image Processing**: Sharp for image preprocessing
-- **Authentication**: JWT tokens
-
-## Quick Start (Development)
-
-1. **Install dependencies**:
-   ```bash
-   npm run install-all
-   ```
-
-2. **Set up environment variables**:
-   
-   Create `backend/.env`:
-   ```env
-   PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/xavier_nmms
-   JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-   NODE_ENV=development
-   GEMINI_API_KEY=your_gemini_api_key
-   FRONTEND_URL=http://localhost:3000
-   ```
-
-3. **Start MongoDB**:
-   - Make sure MongoDB is running locally
-   - Or use MongoDB Atlas connection string
-
-4. **Start the application**:
-   ```bash
-   npm run dev
-   ```
-
-   This will start:
-   - Backend server: `http://localhost:5000`
-   - Frontend server: `http://localhost:3000`
-
-## Production Deployment
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions to:
-- **Backend**: Render
-- **Frontend**: Vercel
-
-## Project Structure
-
+1. **Clone and Install Dependencies**
+```bash
+npm run install-all
 ```
-xavier-nmms-scanner/
+
+2. **Configure Environment Variables**
+
+Create `backend/.env`:
+```env
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# Database
+MONGODB_URI=your_mongodb_connection_string
+
+# JWT Secret (generate a random string)
+JWT_SECRET=your_super_secret_jwt_key_here
+
+# Google Gemini AI API Key (REQUIRED)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# CORS (for development)
+CLIENT_URL=http://localhost:5173
+```
+
+Create `frontend/.env`:
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+3. **Start Development Servers**
+```bash
+npm run dev
+```
+
+This starts both backend (port 5000) and frontend (port 5173).
+
+## 📖 Usage Guide
+
+### For Admins
+
+1. **Register/Login** as admin
+2. **Upload Question Paper**:
+   - Upload 1-20 pages of the question paper (JPG, PNG, WebP)
+   - AI will extract all questions (text + diagrams)
+   - AI will solve each question and generate the answer key
+   - Wait 2-5 minutes for processing
+
+3. **Manage Answer Keys**:
+   - View all created answer keys
+   - Delete outdated answer keys
+
+### For Users
+
+1. **Scan OMR Sheets**:
+   - Select an answer key
+   - Upload student's OMR sheet image
+   - Get instant results with score and percentage
+
+2. **View Results**:
+   - See detailed question-by-question analysis
+   - View correct vs selected answers
+   - Track performance over time
+
+## 🏗️ Production Deployment
+
+### Environment Variables for Production
+
+**Backend (`backend/.env`)**:
+```env
+NODE_ENV=production
+PORT=5000
+MONGODB_URI=your_production_mongodb_uri
+JWT_SECRET=your_strong_production_secret
+GEMINI_API_KEY=your_gemini_api_key
+CLIENT_URL=https://your-frontend-domain.com
+```
+
+**Frontend (`frontend/.env.production`)**:
+```env
+VITE_API_URL=https://your-backend-domain.com
+```
+
+### Deployment Options
+
+#### Option 1: Vercel (Recommended)
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Vercel deployment instructions.
+
+#### Option 2: Traditional Hosting
+
+**Backend**:
+```bash
+cd backend
+npm install --production
+npm start
+```
+
+**Frontend**:
+```bash
+cd frontend
+npm install
+npm run build
+# Serve the 'dist' folder with nginx or any static server
+```
+
+### Production Checklist
+- [ ] Set `NODE_ENV=production`
+- [ ] Use strong JWT_SECRET
+- [ ] Configure CORS properly
+- [ ] Set up MongoDB Atlas or production database
+- [ ] Add Gemini API key
+- [ ] Enable HTTPS
+- [ ] Set up file upload limits
+- [ ] Configure rate limiting
+- [ ] Set up monitoring and logging
+- [ ] Test all features thoroughly
+
+## 🔧 Configuration
+
+### File Upload Limits
+- Maximum 20 pages per question paper upload
+- Maximum 10MB per file
+- Supported formats: JPG, PNG, WebP, HEIC
+
+### AI Processing
+- Model: Google Gemini 1.5 Flash
+- Timeout: 5 minutes per upload
+- Handles both text and diagram questions
+- JSON-based structured output
+
+### Database Models
+- **User**: Authentication and roles (admin/user)
+- **AnswerKey**: Stores questions and correct answers
+- **ScanResult**: Stores OMR scan results and scores
+
+## 🛠️ Development
+
+### Project Structure
+```
 ├── backend/
-│   ├── models/          # MongoDB models
-│   ├── routes/          # API routes
-│   ├── services/        # AI processing services
+│   ├── models/          # MongoDB schemas
+│   ├── routes/          # API endpoints
+│   ├── services/        # Business logic (AI processing, OMR)
 │   ├── middleware/      # Auth middleware
-│   ├── uploads/         # Uploaded files
 │   └── server.js        # Express server
 ├── frontend/
 │   ├── src/
-│   │   ├── components/  # React components
-│   │   ├── pages/       # Page components
+│   │   ├── pages/       # React pages
+│   │   ├── components/  # Reusable components
 │   │   ├── context/     # Auth context
-│   │   ├── config/      # Axios configuration
-│   │   └── App.jsx      # Main app
-│   └── package.json
-└── package.json         # Root package.json
+│   │   └── config/      # Axios configuration
+│   └── public/
+└── package.json         # Root scripts
 ```
 
-## API Endpoints
+### Available Scripts
+
+**Root**:
+- `npm run dev` - Start both servers
+- `npm run install-all` - Install all dependencies
+
+**Backend**:
+- `npm run dev` - Start with hot reload
+- `npm start` - Start production server
+
+**Frontend**:
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+
+## 🔐 Security
+
+- JWT-based authentication
+- Password hashing with bcrypt
+- Role-based access control (admin/user)
+- CORS configuration
+- File type validation
+- File size limits
+- Input sanitization
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. "GEMINI_API_KEY is not defined"**
+- Ensure you've added your Gemini API key to `backend/.env`
+- Restart the backend server after adding the key
+
+**2. "Failed to process question paper"**
+- Check if images are clear and readable
+- Ensure files are in supported formats (JPG, PNG, WebP)
+- Check backend logs for specific errors
+- Verify Gemini API key is valid
+
+**3. "Connection refused" errors**
+- Verify MongoDB is running and connection string is correct
+- Check if ports 5000 and 5173 are available
+- Ensure firewall isn't blocking connections
+
+**4. CORS errors**
+- Update `CLIENT_URL` in backend `.env`
+- Ensure frontend is accessing correct API URL
+
+## 📝 API Documentation
 
 ### Authentication
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
 
-### Admin
-- `POST /api/admin/upload-question-paper` - Upload question paper (admin only)
-- `GET /api/admin/answer-keys` - Get all answer keys (admin only)
-- `GET /api/admin/answer-keys/:id` - Get single answer key
-- `DELETE /api/admin/answer-keys/:id` - Delete answer key (admin only)
+### Admin Routes (Protected)
+- `POST /api/admin/upload-question-paper` - Upload and process question paper
+- `GET /api/admin/answer-keys` - Get all answer keys
+- `GET /api/admin/answer-keys/:id` - Get specific answer key
+- `DELETE /api/admin/answer-keys/:id` - Delete answer key
 
-### Scanner
+### Scanner Routes (Protected)
 - `POST /api/scanner/scan` - Scan OMR sheet
 - `GET /api/scanner/results` - Get all scan results
-- `GET /api/scanner/results/:id` - Get single scan result
+- `GET /api/scanner/results/:id` - Get specific result
 
-## Environment Variables
-
-### Development
-
-**Backend** (`backend/.env`):
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/xavier_nmms
-JWT_SECRET=your_secret_key
-NODE_ENV=development
-GEMINI_API_KEY=your_gemini_key
-FRONTEND_URL=http://localhost:3000
-```
-
-**Frontend** (`frontend/.env`):
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-### Production
-
-See `backend/env.production.example` and `frontend/env.production.example` for production environment variables.
-
-## Usage
-
-### Admin Workflow
-
-1. **Register/Login** as admin
-2. **Upload Question Paper**: 
-   - Go to Admin Dashboard
-   - Upload 4 pages of question paper (images or PDF)
-   - AI will automatically detect questions and options
-   - Gemini AI will find correct answers
-   - Answer key will be generated and stored
-
-### Scanner Workflow
-
-1. **Select Answer Key** from dropdown
-2. **Enter Student Name** (optional)
-3. **Start Scanning** - Camera activates automatically
-4. **Position OMR Sheet** - System automatically scans every 2 seconds
-5. **View Results** - Results appear automatically when OMR sheet is detected
-
-## Notes
-
-- **AI Answer Detection**: Uses Google Gemini 1.5 Flash API to automatically find correct answers from questions and options.
-- **OMR Detection**: Uses OCR (Tesseract.js) to detect numbers (1, 2, 3, 4) inside bubbles. Falls back to darkness-based detection if OCR fails.
-- **OMR Sheet Format**: The OMR sheets should have numbers (1, 2, 3, 4) printed inside each answer bubble.
-- **Real-time Scanning**: The scanner continuously captures and processes images automatically - no manual button clicks needed.
-- Ensure good lighting and flat OMR sheets for best scanning results.
-
-## License
-
+## 📄 License
 ISC
+
+## 👨‍💻 Support
+For issues and questions, please check the documentation files:
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
+- [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) - Pre-deployment checklist
+- [CORS_FIX.md](./CORS_FIX.md) - CORS troubleshooting
+- [SETUP.md](./SETUP.md) - Initial setup guide
