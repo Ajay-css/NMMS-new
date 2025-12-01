@@ -1,4 +1,3 @@
-import Tesseract from 'tesseract.js';
 import sharp from 'sharp';
 
 /**
@@ -9,167 +8,95 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
     // Convert base64 to buffer if needed
     let imageBuffer;
     if (typeof imageData === 'string') {
-      // Remove data URL prefix if present
       const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
       imageBuffer = Buffer.from(base64Data, 'base64');
     } else {
       imageBuffer = imageData;
     }
-    
-    // Preprocess image for better OCR - enhance contrast and sharpen
-    const processed = await sharp(imageBuffer)
+
+    // Preprocess image: greyscale, normalize, and get raw pixel data
+    const { data, info } = await sharp(imageBuffer)
       .greyscale()
       .normalize()
-      .sharpen()
-      .linear(1.2, -(128 * 0.2)) // Increase contrast
-      .toBuffer();
-    
-    // Get image metadata
-    const metadata = await sharp(processed).metadata();
-    const width = metadata.width;
-    const height = metadata.height;
-    
-    // Calculate grid positions for 100 questions with 4 options each
-    // Assuming standard OMR layout: questions in rows, options in columns
-    const questionsPerRow = 10;
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const width = info.width;
+    const height = info.height;
+
+    // OMR Layout Configuration
+    // Adjust these values based on your specific OMR sheet layout
+    const questionsPerRow = 10; // Number of questions in one horizontal row
     const rows = Math.ceil(totalQuestions / questionsPerRow);
-    const rowHeight = height / rows;
-    const questionWidth = width / questionsPerRow;
-    const optionWidth = questionWidth / 4; // 4 options per question
-    
+
+    // Margins to ignore (paper edges)
+    const marginX = width * 0.05;
+    const marginY = height * 0.05;
+    const contentWidth = width - (2 * marginX);
+    const contentHeight = height - (2 * marginY);
+
+    const rowHeight = contentHeight / rows;
+    const questionWidth = contentWidth / questionsPerRow;
+    const optionWidth = questionWidth / 5; // Divide by 5 to account for spacing
+
     const answers = [];
-    
+
     // Process each question
     for (let q = 0; q < totalQuestions; q++) {
       const row = Math.floor(q / questionsPerRow);
       const col = q % questionsPerRow;
-      
-      const questionY = row * rowHeight + rowHeight / 2;
-      const questionX = col * questionWidth + questionWidth / 2;
-      
-      // Check each of the 4 options for this question
-      let selectedAnswer = null;
-      let maxConfidence = 0;
-      
+
+      // Calculate center of the question block
+      const questionY = marginY + (row * rowHeight) + (rowHeight / 2);
+      const questionX = marginX + (col * questionWidth) + (questionWidth / 2);
+
+      let darkestOption = null;
+      let maxDarkness = -1; // Higher value means darker (inverted logic below)
+      let minBrightness = 255; // Lower value means darker
+
+      // Check all 4 options
       for (let opt = 1; opt <= 4; opt++) {
-        // Calculate bubble position (each question has 4 bubbles in a row)
-        const bubbleX = questionX - questionWidth / 2 + (opt - 0.5) * optionWidth;
-        const bubbleY = questionY;
-        
-        // Extract a region around the bubble (larger region for better OCR)
-        const sampleSize = Math.max(40, optionWidth * 0.6); // Larger sample for number detection
-        const left = Math.max(0, Math.floor(bubbleX - sampleSize / 2));
-        const top = Math.max(0, Math.floor(bubbleY - sampleSize / 2));
-        const right = Math.min(width, Math.ceil(bubbleX + sampleSize / 2));
-        const bottom = Math.min(height, Math.ceil(bubbleY + sampleSize / 2));
-        
-        // Extract bubble region
-        const bubbleRegion = await sharp(processed)
-          .extract({
-            left,
-            top,
-            width: right - left,
-            height: bottom - top
-          })
-          .resize(Math.max(100, (right - left) * 2), Math.max(100, (bottom - top) * 2), {
-            kernel: sharp.kernel.lanczos3
-          })
-          .normalize()
-          .sharpen()
-          .toBuffer();
-        
-        // Use OCR to detect the number inside the bubble
-        try {
-          const { data } = await Tesseract.recognize(bubbleRegion, 'eng', {
-            logger: () => {} // Suppress logs for performance
-          });
-          
-          const text = data.text.trim();
-          
-          // Look for numbers 1, 2, 3, or 4 in the OCR result
-          const numberMatch = text.match(/\b([1-4])\b/);
-          
-          if (numberMatch) {
-            const detectedNumber = parseInt(numberMatch[1]);
-            const confidence = data.confidence || 0;
-            
-            // If we found a number and it matches the expected option number
-            if (detectedNumber === opt && confidence > maxConfidence) {
-              maxConfidence = confidence;
-              selectedAnswer = opt;
-            }
-          }
-          
-          // Also check if the bubble appears filled (dark) as a fallback
-          const regionData = await sharp(bubbleRegion)
-            .greyscale()
-            .raw()
-            .toBuffer();
-          
-          let totalDarkness = 0;
-          for (let i = 0; i < regionData.length; i++) {
-            totalDarkness += regionData[i];
-          }
-          const avgDarkness = totalDarkness / regionData.length;
-          
-          // If bubble is very dark (filled) and we haven't found a number yet
-          if (avgDarkness < 80 && !selectedAnswer && opt === 1) {
-            // Fallback: check if bubble is filled by darkness
-            selectedAnswer = opt;
-          }
-        } catch (ocrError) {
-          console.warn(`OCR error for question ${q + 1}, option ${opt}:`, ocrError.message);
-        }
-      }
-      
-      // If no answer detected via OCR, try darkness-based detection as fallback
-      if (!selectedAnswer) {
-        let darkestOption = null;
-        let minDarkness = 255;
-        
-        for (let opt = 1; opt <= 4; opt++) {
-          const bubbleX = questionX - questionWidth / 2 + (opt - 0.5) * optionWidth;
-          const bubbleY = questionY;
-          const sampleSize = Math.max(30, optionWidth * 0.5);
-          const left = Math.max(0, Math.floor(bubbleX - sampleSize / 2));
-          const top = Math.max(0, Math.floor(bubbleY - sampleSize / 2));
-          const right = Math.min(width, Math.ceil(bubbleX + sampleSize / 2));
-          const bottom = Math.min(height, Math.ceil(bubbleY + sampleSize / 2));
-          
-          const region = await sharp(processed)
-            .extract({
-              left,
-              top,
-              width: right - left,
-              height: bottom - top
-            })
-            .greyscale()
-            .raw()
-            .toBuffer();
-          
-          let darkness = 0;
-          for (let i = 0; i < region.length; i++) {
-            darkness += region[i];
-          }
-          darkness = darkness / region.length;
-          
-          if (darkness < minDarkness) {
-            minDarkness = darkness;
-            if (darkness < 100) { // Threshold for filled bubble
-              darkestOption = opt;
+        // Calculate bubble center
+        // Adjust offset based on your specific sheet layout
+        const bubbleX = Math.floor(questionX - (questionWidth / 2) + (opt * optionWidth));
+        const bubbleY = Math.floor(questionY);
+
+        // Define bubble region size (radius)
+        const radius = Math.floor(Math.min(optionWidth, rowHeight) * 0.25);
+
+        let totalBrightness = 0;
+        let pixelCount = 0;
+
+        // Calculate average brightness of the bubble region
+        for (let y = bubbleY - radius; y <= bubbleY + radius; y++) {
+          for (let x = bubbleX - radius; x <= bubbleX + radius; x++) {
+            if (x >= 0 && x < width && y >= 0 && y < height) {
+              const offset = y * width + x;
+              totalBrightness += data[offset];
+              pixelCount++;
             }
           }
         }
-        
-        selectedAnswer = darkestOption;
+
+        const avgBrightness = totalBrightness / pixelCount;
+
+        // Check if this is the darkest option so far
+        if (avgBrightness < minBrightness) {
+          minBrightness = avgBrightness;
+          // Threshold: Bubble must be significantly dark (e.g., < 150 out of 255)
+          // Adjust this threshold based on scan quality
+          if (avgBrightness < 180) {
+            darkestOption = opt;
+          }
+        }
       }
-      
+
       answers.push({
         questionNumber: q + 1,
-        selectedAnswer: selectedAnswer || null
+        selectedAnswer: darkestOption
       });
     }
-    
+
     return answers;
   } catch (error) {
     console.error('Error processing OMR sheet:', error);
