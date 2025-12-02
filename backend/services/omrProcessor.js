@@ -174,6 +174,9 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
       });
 
       // Add to debug SVG
+      // Define measureRadius here so it's available for debug drawing
+      const measureRadius = Math.floor(Math.min(optionWidth, rowHeight) * 0.15);
+
       optionBrightness.forEach(o => {
         const color = (o.opt === selectedAnswer) ? "green" : "red";
         const strokeWidth = (o.opt === selectedAnswer) ? 3 : 1;
