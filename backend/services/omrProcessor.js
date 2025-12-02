@@ -2,7 +2,7 @@ import sharp from 'sharp';
 
 /**
  * Process OMR sheet image to detect numbers (1, 2, 3, 4) inside bubbles
- * Optimized for speed and accuracy using dynamic thresholding
+ * Optimized for speed and accuracy using relative darkness comparison and smart center search
  */
 export async function processOMRSheet(imageData, totalQuestions = 100) {
   try {
@@ -25,66 +25,73 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
     const width = info.width;
     const height = info.height;
 
-    // OMR Layout Configuration - FINE TUNED
-    // Adjust these values based on your specific OMR sheet layout
+    // OMR Layout Configuration - ROBUST MODE
     const questionsPerRow = 10;
     const rows = Math.ceil(totalQuestions / questionsPerRow);
 
-    // Margins - slightly adjusted to avoid edges
-    const marginX = width * 0.04; // 4% margin
-    const marginY = height * 0.03; // 3% margin
+    // Margins - Standard A4 OMR usually has these margins
+    const marginX = width * 0.05;
+    const marginY = height * 0.04;
     const contentWidth = width - (2 * marginX);
     const contentHeight = height - (2 * marginY);
 
     const rowHeight = contentHeight / rows;
     const questionWidth = contentWidth / questionsPerRow;
 
-    // Option spacing within a question block
-    // A question block has 4 options. We need to find the center of each.
-    // |  (1)  (2)  (3)  (4)  |
-    const optionWidth = questionWidth / 4.5; // Slightly tighter spacing
+    // Option spacing: | (1) (2) (3) (4) |
+    // Options are usually centered within the question block
+    const optionWidth = questionWidth / 4.2; // Adjusted spacing
 
     const answers = [];
-
-    // Calculate global average brightness to set a baseline
-    let globalSum = 0;
-    for (let i = 0; i < data.length; i += 100) { // Sample every 100th pixel
-      globalSum += data[i];
-    }
-    const globalAvg = globalSum / (data.length / 100);
-    // Dynamic threshold: A filled bubble is typically 30-40% darker than the paper
-    const detectionThreshold = globalAvg * 0.75;
-
-    console.log(`Global Avg Brightness: ${globalAvg.toFixed(2)}, Threshold: ${detectionThreshold.toFixed(2)}`);
 
     // Process each question
     for (let q = 0; q < totalQuestions; q++) {
       const row = Math.floor(q / questionsPerRow);
       const col = q % questionsPerRow;
 
-      // Calculate center of the question block
-      const questionY = marginY + (row * rowHeight) + (rowHeight * 0.6); // Shift down slightly
-      const questionX = marginX + (col * questionWidth) + (questionWidth * 0.1); // Shift right slightly
+      // Calculate approximate center of the question block
+      const questionY = marginY + (row * rowHeight) + (rowHeight * 0.55);
+      const questionX = marginX + (col * questionWidth) + (questionWidth * 0.15);
 
-      let darkestOption = null;
-      let minBrightness = 255;
+      let optionBrightness = [];
 
       // Check all 4 options
       for (let opt = 1; opt <= 4; opt++) {
-        // Calculate bubble center
-        // We assume options are distributed horizontally in the question block
-        const bubbleX = Math.floor(questionX + ((opt - 1) * optionWidth) + (optionWidth * 0.8));
-        const bubbleY = Math.floor(questionY);
+        // Calculate estimated bubble center
+        const estimatedX = Math.floor(questionX + ((opt - 1) * optionWidth) + (optionWidth * 0.6));
+        const estimatedY = Math.floor(questionY);
 
-        // Define bubble region size (radius) - smaller to hit the center of the bubble
-        const radius = Math.floor(Math.min(optionWidth, rowHeight) * 0.15);
+        // SMART CENTER SEARCH:
+        // The grid might be slightly off. Let's search a small area around the estimated center
+        // to find the "true" center (the darkest spot).
+        let minLocalBrightness = 255;
+        let bestX = estimatedX;
+        let bestY = estimatedY;
 
+        const searchRadius = Math.floor(optionWidth * 0.2); // Search 20% around
+
+        // Scan a small grid around the estimated point to find the darkest pixel
+        // This helps align perfectly with the bubble
+        for (let sy = estimatedY - searchRadius; sy <= estimatedY + searchRadius; sy += 2) {
+          for (let sx = estimatedX - searchRadius; sx <= estimatedX + searchRadius; sx += 2) {
+            if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+              const offset = sy * width + sx;
+              if (data[offset] < minLocalBrightness) {
+                minLocalBrightness = data[offset];
+                bestX = sx;
+                bestY = sy;
+              }
+            }
+          }
+        }
+
+        // Now measure average brightness at the BEST center we found
+        const measureRadius = Math.floor(Math.min(optionWidth, rowHeight) * 0.15);
         let totalBrightness = 0;
         let pixelCount = 0;
 
-        // Calculate average brightness of the bubble region
-        for (let y = bubbleY - radius; y <= bubbleY + radius; y++) {
-          for (let x = bubbleX - radius; x <= bubbleX + radius; x++) {
+        for (let y = bestY - measureRadius; y <= bestY + measureRadius; y++) {
+          for (let x = bestX - measureRadius; x <= bestX + measureRadius; x++) {
             if (x >= 0 && x < width && y >= 0 && y < height) {
               const offset = y * width + x;
               totalBrightness += data[offset];
@@ -94,27 +101,43 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
         }
 
         const avgBrightness = totalBrightness / pixelCount;
+        optionBrightness.push({ opt, brightness: avgBrightness });
+      }
 
-        // Debug logging for first few questions to check alignment
-        if (q < 3) {
-          console.log(`Q${q + 1} Opt${opt}: Brightness ${avgBrightness.toFixed(2)} (Threshold: ${detectionThreshold.toFixed(2)}) at [${bubbleX}, ${bubbleY}]`);
-        }
+      // RELATIVE DARKNESS LOGIC:
+      // Sort options by brightness (darkest first)
+      optionBrightness.sort((a, b) => a.brightness - b.brightness);
 
-        // Check if this is the darkest option so far
-        if (avgBrightness < minBrightness) {
-          minBrightness = avgBrightness;
+      const darkest = optionBrightness[0];
+      const secondDarkest = optionBrightness[1];
 
-          // It must be significantly darker than the paper (dynamic threshold)
-          // AND it must be absolutely dark enough (e.g. < 160) to avoid shadows
-          if (avgBrightness < detectionThreshold || avgBrightness < 150) {
-            darkestOption = opt;
-          }
-        }
+      // Calculate average brightness of the other 3 options
+      const avgOthers = (optionBrightness[1].brightness + optionBrightness[2].brightness + optionBrightness[3].brightness) / 3;
+
+      let selectedAnswer = null;
+
+      // Debug log
+      if (q < 3) {
+        console.log(`Q${q + 1}: Darkest=${darkest.brightness.toFixed(1)} (Opt ${darkest.opt}), AvgOthers=${avgOthers.toFixed(1)}`);
+      }
+
+      // Logic:
+      // 1. The darkest bubble must be darker than the average of others by a margin (e.g. 15% darker)
+      // 2. OR if the contrast is huge (e.g. < 100 brightness vs > 180), pick it immediately
+      if (darkest.brightness < (avgOthers * 0.85)) {
+        selectedAnswer = darkest.opt;
+      } else if (darkest.brightness < 120 && avgOthers > 160) {
+        selectedAnswer = darkest.opt;
+      }
+
+      // Fallback: If we are still N/A but there is a "winner" (darkest is clearly separated from second darkest)
+      if (!selectedAnswer && (secondDarkest.brightness - darkest.brightness) > 20) {
+        selectedAnswer = darkest.opt;
       }
 
       answers.push({
         questionNumber: q + 1,
-        selectedAnswer: darkestOption // Will be null if no option met the threshold
+        selectedAnswer: selectedAnswer // Can still be null if really ambiguous, but much less likely
       });
     }
 
