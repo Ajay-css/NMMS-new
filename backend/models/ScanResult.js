@@ -24,6 +24,11 @@ const scanResultSchema = new mongoose.Schema({
       min: 1,
       max: 4
     },
+    correctAnswer: {
+      type: Number,
+      min: 1,
+      max: 4
+    },
     isCorrect: {
       type: Boolean,
       default: false

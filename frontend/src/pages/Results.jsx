@@ -216,7 +216,7 @@ const Results = () => {
                     >
                       <div className="font-semibold">Q{answer.questionNumber}</div>
                       <div className="mt-1">
-                        {answer.selectedAnswer || 'N/A'} / {answer.correctAnswer}
+                        {answer.selectedAnswer || 'N/A'} / {answer.correctAnswer || '?'}
                       </div>
                     </div>
                   ))}
