@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import path from 'path';
 
 /**
  * Process OMR sheet image to detect numbers (1, 2, 3, 4) inside bubbles
@@ -25,24 +26,69 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
     const width = info.width;
     const height = info.height;
 
-    // OMR Layout Configuration - ROBUST MODE
+    // AUTO-MARGIN DETECTION
+    // Scan to find the bounding box of the content (the grid of bubbles)
+    // We look for significant darkness (ink) starting from edges
+
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+    const threshold = 200; // Pixel brightness threshold (pixels darker than this are "ink")
+
+    // Scan horizontal center line to find left/right bounds
+    const centerY = Math.floor(height / 2);
+    for (let x = 0; x < width; x++) {
+      if (data[centerY * width + x] < threshold) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+      }
+    }
+
+    // Scan vertical center lines (at 25% and 75% width) to find top/bottom bounds
+    const x1 = Math.floor(width * 0.25);
+    const x2 = Math.floor(width * 0.75);
+
+    for (let y = 0; y < height; y++) {
+      if (data[y * width + x1] < threshold || data[y * width + x2] < threshold) {
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+
+    // Add some padding to the detected bounds
+    // If detection failed (e.g. blank page), fall back to defaults
+    if (minX >= maxX || minY >= maxY) {
+      console.log('Auto-margin detection failed, using defaults');
+      minX = width * 0.05;
+      maxX = width * 0.95;
+      minY = height * 0.05;
+      maxY = height * 0.95;
+    } else {
+      // Relax bounds slightly
+      minX = Math.max(0, minX - width * 0.02);
+      maxX = Math.min(width, maxX + width * 0.02);
+      minY = Math.max(0, minY - height * 0.02);
+      maxY = Math.min(height, maxY + height * 0.02);
+      console.log(`Auto-margins: X[${minX}-${maxX}], Y[${minY}-${maxY}]`);
+    }
+
+    // OMR Layout Configuration - DYNAMIC
     const questionsPerRow = 10;
     const rows = Math.ceil(totalQuestions / questionsPerRow);
 
-    // Margins - Standard A4 OMR usually has these margins
-    const marginX = width * 0.05;
-    const marginY = height * 0.04;
-    const contentWidth = width - (2 * marginX);
-    const contentHeight = height - (2 * marginY);
+    const marginX = minX;
+    const marginY = minY;
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
 
     const rowHeight = contentHeight / rows;
     const questionWidth = contentWidth / questionsPerRow;
 
     // Option spacing: | (1) (2) (3) (4) |
-    // Options are usually centered within the question block
-    const optionWidth = questionWidth / 4.2; // Adjusted spacing
+    const optionWidth = questionWidth / 4.2;
 
     const answers = [];
+
+    // SVG for debug overlay
+    let svgOverlay = `<svg width="${width}" height="${height}">`;
 
     // Process each question
     for (let q = 0; q < totalQuestions; q++) {
@@ -62,16 +108,13 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
         const estimatedY = Math.floor(questionY);
 
         // SMART CENTER SEARCH:
-        // The grid might be slightly off. Let's search a small area around the estimated center
-        // to find the "true" center (the darkest spot).
+        // Search WIDER area (40% of option width) to find the true center
         let minLocalBrightness = 255;
         let bestX = estimatedX;
         let bestY = estimatedY;
 
-        const searchRadius = Math.floor(optionWidth * 0.2); // Search 20% around
+        const searchRadius = Math.floor(optionWidth * 0.4); // Increased search radius
 
-        // Scan a small grid around the estimated point to find the darkest pixel
-        // This helps align perfectly with the bubble
         for (let sy = estimatedY - searchRadius; sy <= estimatedY + searchRadius; sy += 2) {
           for (let sx = estimatedX - searchRadius; sx <= estimatedX + searchRadius; sx += 2) {
             if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
@@ -85,7 +128,7 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
           }
         }
 
-        // Now measure average brightness at the BEST center we found
+        // Measure average brightness at the BEST center
         const measureRadius = Math.floor(Math.min(optionWidth, rowHeight) * 0.15);
         let totalBrightness = 0;
         let pixelCount = 0;
@@ -101,44 +144,56 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
         }
 
         const avgBrightness = totalBrightness / pixelCount;
-        optionBrightness.push({ opt, brightness: avgBrightness });
+        optionBrightness.push({ opt, brightness: avgBrightness, x: bestX, y: bestY });
       }
 
-      // RELATIVE DARKNESS LOGIC:
-      // Sort options by brightness (darkest first)
+      // RELATIVE DARKNESS LOGIC
       optionBrightness.sort((a, b) => a.brightness - b.brightness);
 
       const darkest = optionBrightness[0];
       const secondDarkest = optionBrightness[1];
-
-      // Calculate average brightness of the other 3 options
       const avgOthers = (optionBrightness[1].brightness + optionBrightness[2].brightness + optionBrightness[3].brightness) / 3;
 
       let selectedAnswer = null;
 
-      // Debug log
-      if (q < 3) {
-        console.log(`Q${q + 1}: Darkest=${darkest.brightness.toFixed(1)} (Opt ${darkest.opt}), AvgOthers=${avgOthers.toFixed(1)}`);
-      }
-
-      // Logic:
-      // 1. The darkest bubble must be darker than the average of others by a margin (e.g. 15% darker)
-      // 2. OR if the contrast is huge (e.g. < 100 brightness vs > 180), pick it immediately
-      if (darkest.brightness < (avgOthers * 0.85)) {
+      // Logic: Darkest must be significantly darker
+      if (darkest.brightness < (avgOthers * 0.90)) { // Relaxed threshold (90% of others)
         selectedAnswer = darkest.opt;
-      } else if (darkest.brightness < 120 && avgOthers > 160) {
+      } else if (darkest.brightness < 140 && avgOthers > 170) {
         selectedAnswer = darkest.opt;
       }
 
-      // Fallback: If we are still N/A but there is a "winner" (darkest is clearly separated from second darkest)
-      if (!selectedAnswer && (secondDarkest.brightness - darkest.brightness) > 20) {
+      // Fallback
+      if (!selectedAnswer && (secondDarkest.brightness - darkest.brightness) > 15) {
         selectedAnswer = darkest.opt;
       }
 
       answers.push({
         questionNumber: q + 1,
-        selectedAnswer: selectedAnswer // Can still be null if really ambiguous, but much less likely
+        selectedAnswer: selectedAnswer
       });
+
+      // Add to debug SVG
+      optionBrightness.forEach(o => {
+        const color = (o.opt === selectedAnswer) ? "green" : "red";
+        const strokeWidth = (o.opt === selectedAnswer) ? 3 : 1;
+        // Draw circle at detected center
+        svgOverlay += `<circle cx="${o.x}" cy="${o.y}" r="${measureRadius}" stroke="${color}" stroke-width="${strokeWidth}" fill="none" />`;
+      });
+    }
+
+    svgOverlay += `</svg>`;
+
+    // Save Debug Image
+    try {
+      // Assuming we are in backend/services, go up to root then to frontend/public
+      const debugPath = path.join(process.cwd(), '../frontend/public/debug-omr.jpg');
+      await sharp(imageBuffer)
+        .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
+        .toFile(debugPath);
+      console.log('Debug image saved to:', debugPath);
+    } catch (err) {
+      console.error('Failed to save debug image:', err);
     }
 
     return answers;
@@ -152,7 +207,5 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
  * Alternative method using contour detection (more advanced)
  */
 export async function processOMRSheetAdvanced(imageData, totalQuestions = 100) {
-  // This would use OpenCV.js or similar for more accurate bubble detection
-  // For now, using the simpler threshold-based method above
   return processOMRSheet(imageData, totalQuestions);
 }
