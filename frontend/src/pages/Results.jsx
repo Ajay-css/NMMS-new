@@ -42,9 +42,33 @@ const Results = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
-      <div className="mb-4 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-2">Scan Results</h1>
-        <p className="text-sm sm:text-base text-slate-600">View all scanned OMR sheet results</p>
+      <div className="mb-4 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-2">Scan Results</h1>
+          <p className="text-sm sm:text-base text-slate-600">View all scanned OMR sheet results</p>
+        </div>
+        {results.length > 0 && (
+          <button
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to delete ALL scan results? This action cannot be undone.')) {
+                try {
+                  await api.delete('/api/scanner/results');
+                  toast.success('All results deleted successfully');
+                  fetchResults();
+                } catch (error) {
+                  console.error('Error deleting results:', error);
+                  toast.error('Failed to delete results');
+                }
+              }
+            }}
+            className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm flex items-center gap-2 border border-red-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete All Results
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -81,11 +105,10 @@ const Results = () => {
                         <span className="text-slate-500"> / {result.totalQuestions}</span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className={`font-semibold ${
-                          result.percentage >= 80 ? 'text-green-600' :
-                          result.percentage >= 60 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
+                        <span className={`font-semibold ${result.percentage >= 80 ? 'text-green-600' :
+                            result.percentage >= 60 ? 'text-yellow-600' :
+                              'text-red-600'
+                          }`}>
                           {result.percentage.toFixed(1)}%
                         </span>
                       </td>
@@ -117,11 +140,10 @@ const Results = () => {
                       <h3 className="font-semibold text-slate-800">{result.studentName}</h3>
                       <p className="text-sm text-slate-600 mt-1">{result.answerKeyId?.name || 'N/A'}</p>
                     </div>
-                    <span className={`font-semibold text-lg ${
-                      result.percentage >= 80 ? 'text-green-600' :
-                      result.percentage >= 60 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>
+                    <span className={`font-semibold text-lg ${result.percentage >= 80 ? 'text-green-600' :
+                        result.percentage >= 60 ? 'text-yellow-600' :
+                          'text-red-600'
+                      }`}>
                       {result.percentage.toFixed(1)}%
                     </span>
                   </div>
@@ -160,7 +182,7 @@ const Results = () => {
                 ×
               </button>
             </div>
-            
+
             <div className="p-4 sm:p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div className="bg-green-50 p-3 sm:p-4 rounded-lg text-center">
@@ -187,11 +209,10 @@ const Results = () => {
                   {selectedResult.answers.map((answer, index) => (
                     <div
                       key={index}
-                      className={`p-2 rounded text-center text-xs ${
-                        answer.isCorrect
+                      className={`p-2 rounded text-center text-xs ${answer.isCorrect
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
-                      }`}
+                        }`}
                     >
                       <div className="font-semibold">Q{answer.questionNumber}</div>
                       <div className="mt-1">

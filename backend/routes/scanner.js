@@ -83,8 +83,23 @@ router.get('/results', authenticate, async (req, res) => {
       .populate('answerKeyId', 'name')
       .populate('scannedBy', 'username')
       .sort({ scannedAt: -1 });
-    
+
     res.json(results);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Delete all scan results
+router.delete('/results', authenticate, async (req, res) => {
+  try {
+    // Optional: Check if user is admin
+    // if (req.user.role !== 'admin') {
+    //   return res.status(403).json({ message: 'Access denied' });
+    // }
+
+    await ScanResult.deleteMany({});
+    res.json({ message: 'All scan results deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -96,11 +111,11 @@ router.get('/results/:id', authenticate, async (req, res) => {
     const result = await ScanResult.findById(req.params.id)
       .populate('answerKeyId', 'name')
       .populate('scannedBy', 'username');
-    
+
     if (!result) {
       return res.status(404).json({ message: 'Scan result not found' });
     }
-    
+
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });

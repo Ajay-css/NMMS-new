@@ -2,6 +2,7 @@ import sharp from 'sharp';
 
 /**
  * Process OMR sheet image to detect numbers (1, 2, 3, 4) inside bubbles
+ * Optimized for speed and accuracy using dynamic thresholding
  */
 export async function processOMRSheet(imageData, totalQuestions = 100) {
   try {
@@ -24,22 +25,37 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
     const width = info.width;
     const height = info.height;
 
-    // OMR Layout Configuration
+    // OMR Layout Configuration - FINE TUNED
     // Adjust these values based on your specific OMR sheet layout
-    const questionsPerRow = 10; // Number of questions in one horizontal row
+    const questionsPerRow = 10;
     const rows = Math.ceil(totalQuestions / questionsPerRow);
 
-    // Margins to ignore (paper edges)
-    const marginX = width * 0.05;
-    const marginY = height * 0.05;
+    // Margins - slightly adjusted to avoid edges
+    const marginX = width * 0.04; // 4% margin
+    const marginY = height * 0.03; // 3% margin
     const contentWidth = width - (2 * marginX);
     const contentHeight = height - (2 * marginY);
 
     const rowHeight = contentHeight / rows;
     const questionWidth = contentWidth / questionsPerRow;
-    const optionWidth = questionWidth / 5; // Divide by 5 to account for spacing
+
+    // Option spacing within a question block
+    // A question block has 4 options. We need to find the center of each.
+    // |  (1)  (2)  (3)  (4)  |
+    const optionWidth = questionWidth / 4.5; // Slightly tighter spacing
 
     const answers = [];
+
+    // Calculate global average brightness to set a baseline
+    let globalSum = 0;
+    for (let i = 0; i < data.length; i += 100) { // Sample every 100th pixel
+      globalSum += data[i];
+    }
+    const globalAvg = globalSum / (data.length / 100);
+    // Dynamic threshold: A filled bubble is typically 30-40% darker than the paper
+    const detectionThreshold = globalAvg * 0.75;
+
+    console.log(`Global Avg Brightness: ${globalAvg.toFixed(2)}, Threshold: ${detectionThreshold.toFixed(2)}`);
 
     // Process each question
     for (let q = 0; q < totalQuestions; q++) {
@@ -47,22 +63,21 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
       const col = q % questionsPerRow;
 
       // Calculate center of the question block
-      const questionY = marginY + (row * rowHeight) + (rowHeight / 2);
-      const questionX = marginX + (col * questionWidth) + (questionWidth / 2);
+      const questionY = marginY + (row * rowHeight) + (rowHeight * 0.6); // Shift down slightly
+      const questionX = marginX + (col * questionWidth) + (questionWidth * 0.1); // Shift right slightly
 
       let darkestOption = null;
-      let maxDarkness = -1; // Higher value means darker (inverted logic below)
-      let minBrightness = 255; // Lower value means darker
+      let minBrightness = 255;
 
       // Check all 4 options
       for (let opt = 1; opt <= 4; opt++) {
         // Calculate bubble center
-        // Adjust offset based on your specific sheet layout
-        const bubbleX = Math.floor(questionX - (questionWidth / 2) + (opt * optionWidth));
+        // We assume options are distributed horizontally in the question block
+        const bubbleX = Math.floor(questionX + ((opt - 1) * optionWidth) + (optionWidth * 0.8));
         const bubbleY = Math.floor(questionY);
 
-        // Define bubble region size (radius)
-        const radius = Math.floor(Math.min(optionWidth, rowHeight) * 0.25);
+        // Define bubble region size (radius) - smaller to hit the center of the bubble
+        const radius = Math.floor(Math.min(optionWidth, rowHeight) * 0.15);
 
         let totalBrightness = 0;
         let pixelCount = 0;
@@ -80,12 +95,18 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
 
         const avgBrightness = totalBrightness / pixelCount;
 
+        // Debug logging for first few questions to check alignment
+        if (q < 3) {
+          console.log(`Q${q + 1} Opt${opt}: Brightness ${avgBrightness.toFixed(2)} (Threshold: ${detectionThreshold.toFixed(2)}) at [${bubbleX}, ${bubbleY}]`);
+        }
+
         // Check if this is the darkest option so far
         if (avgBrightness < minBrightness) {
           minBrightness = avgBrightness;
-          // Threshold: Bubble must be significantly dark (e.g., < 150 out of 255)
-          // Adjust this threshold based on scan quality
-          if (avgBrightness < 180) {
+
+          // It must be significantly darker than the paper (dynamic threshold)
+          // AND it must be absolutely dark enough (e.g. < 160) to avoid shadows
+          if (avgBrightness < detectionThreshold || avgBrightness < 150) {
             darkestOption = opt;
           }
         }
@@ -93,7 +114,7 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
 
       answers.push({
         questionNumber: q + 1,
-        selectedAnswer: darkestOption
+        selectedAnswer: darkestOption // Will be null if no option met the threshold
       });
     }
 
@@ -112,4 +133,3 @@ export async function processOMRSheetAdvanced(imageData, totalQuestions = 100) {
   // For now, using the simpler threshold-based method above
   return processOMRSheet(imageData, totalQuestions);
 }
-
