@@ -119,8 +119,8 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
 
     const marginX = minX;
     const marginY = minY;
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
+    // contentWidth and contentHeight already declared above (line 65-66)
+
 
     const rowHeight = contentHeight / rows;
     const questionWidth = contentWidth / questionsPerRow;
