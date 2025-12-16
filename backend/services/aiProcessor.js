@@ -87,12 +87,16 @@ async function processPage(model, imagePath, pageIndex, totalPages) {
     const mimeType = getMimeType(imagePath);
 
     // OPTIMIZED PROMPT: Shorter and more direct
-    const prompt = `Extract all MCQs from this page. For each question, identify: question number, question text, 4 options, and solve to find the correct answer (1-4).
+    const prompt = `Extract all MCQs from this page. For each question:
+- Question number (integer)
+- Question text (string, escape quotes)
+- Exactly 4 options with text (escape quotes, no empty text)
+- Correct answer (1, 2, 3, or 4)
 
-Return ONLY valid JSON array:
-[{"questionNumber":1,"question":"text","options":[{"optionNumber":1,"text":"opt1"},{"optionNumber":2,"text":"opt2"},{"optionNumber":3,"text":"opt3"},{"optionNumber":4,"text":"opt4"}],"correctAnswer":1}]
+Return ONLY valid JSON array (no markdown, no explanations):
+[{"questionNumber":1,"question":"What is...","options":[{"optionNumber":1,"text":"Option A"},{"optionNumber":2,"text":"Option B"},{"optionNumber":3,"text":"Option C"},{"optionNumber":4,"text":"Option D"}],"correctAnswer":1}]
 
-No explanations, just JSON.`;
+CRITICAL: Ensure all option text fields have content. Escape quotes properly. Return only the JSON array.`;
 
     const result = await model.generateContent([
       prompt,
@@ -136,20 +140,41 @@ No explanations, just JSON.`;
       console.log(`✅ Page ${pageIndex + 1}: Extracted ${pageQuestions.length} questions`);
     } catch (parseError) {
       console.error(`❌ Page ${pageIndex + 1}: JSON parse failed -`, parseError.message);
+      // Log the problematic text for debugging
+      console.log(`Raw text (first 500 chars):`, cleanText.substring(0, 500));
       throw new Error(`Failed to parse page ${pageIndex + 1}`);
     }
 
     if (Array.isArray(pageQuestions)) {
       // Validate and sanitize questions
-      const validQuestions = pageQuestions.map(q => ({
-        questionNumber: parseInt(q.questionNumber) || 0,
-        question: q.question || 'Unknown Question',
-        options: Array.isArray(q.options) ? q.options.map(o => ({
-          optionNumber: parseInt(o.optionNumber) || 0,
-          text: o.text || ''
-        })) : [],
-        correctAnswer: parseInt(q.correctAnswer) || 1
-      }));
+      const validQuestions = pageQuestions
+        .map(q => {
+          // Ensure options array exists and has valid data
+          const options = Array.isArray(q.options)
+            ? q.options
+              .filter(o => o && (o.text || '').trim() !== '') // Filter out empty options
+              .map((o, idx) => ({
+                optionNumber: parseInt(o.optionNumber) || (idx + 1),
+                text: (o.text || '').trim() || `Option ${idx + 1}` // Fallback text
+              }))
+            : [];
+
+          // Only include questions with at least 2 valid options
+          if (options.length < 2) {
+            console.warn(`⚠️  Question ${q.questionNumber} has insufficient options, skipping`);
+            return null;
+          }
+
+          return {
+            questionNumber: parseInt(q.questionNumber) || 0,
+            question: (q.question || '').trim() || 'Unknown Question',
+            options: options,
+            correctAnswer: parseInt(q.correctAnswer) || 1
+          };
+        })
+        .filter(q => q !== null); // Remove invalid questions
+
+      console.log(`✅ Page ${pageIndex + 1}: ${validQuestions.length} valid questions after filtering`);
       return validQuestions;
     }
 
