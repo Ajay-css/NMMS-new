@@ -56,19 +56,62 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
     // Add some padding to the detected bounds
     // If detection failed (e.g. blank page), fall back to defaults
     if (minX >= maxX || minY >= maxY) {
-      console.log('Auto-margin detection failed, using defaults');
-      minX = width * 0.05;
-      maxX = width * 0.95;
-      minY = height * 0.05;
-      maxY = height * 0.95;
-    } else {
-      // Relax bounds slightly
-      minX = Math.max(0, minX - width * 0.02);
-      maxX = Math.min(width, maxX + width * 0.02);
-      minY = Math.max(0, minY - height * 0.02);
-      maxY = Math.min(height, maxY + height * 0.02);
-      console.log(`Auto-margins: X[${minX}-${maxX}], Y[${minY}-${maxY}]`);
+      console.log('Auto-margin detection failed - no content detected');
+      throw new Error('Unidentified object detected. Please position a valid OMR sheet in the camera view.');
     }
+
+    // VALIDATE OMR SHEET STRUCTURE
+    // Check if detected content has characteristics of an OMR sheet
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    // Calculate ink coverage in detected area
+    let darkPixelCount = 0;
+    let totalPixelsChecked = 0;
+    const sampleStep = 5; // Sample every 5th pixel for performance
+
+    for (let y = Math.floor(minY); y < Math.floor(maxY); y += sampleStep) {
+      for (let x = Math.floor(minX); x < Math.floor(maxX); x += sampleStep) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+          totalPixelsChecked++;
+          if (data[y * width + x] < threshold) {
+            darkPixelCount++;
+          }
+        }
+      }
+    }
+
+    const inkCoverage = darkPixelCount / totalPixelsChecked;
+
+    // OMR sheet validation criteria
+    const aspectRatio = contentWidth / contentHeight;
+    const contentArea = contentWidth * contentHeight;
+    const imageArea = width * height;
+    const contentPercentage = contentArea / imageArea;
+
+    console.log(`Validation - Ink: ${(inkCoverage * 100).toFixed(1)}%, Aspect: ${aspectRatio.toFixed(2)}, Coverage: ${(contentPercentage * 100).toFixed(1)}%`);
+
+    // Validation checks
+    const validations = {
+      inkCoverage: inkCoverage >= 0.05 && inkCoverage <= 0.6, // 5-60% ink coverage
+      aspectRatio: aspectRatio >= 0.3 && aspectRatio <= 3.0, // Reasonable aspect ratio
+      contentSize: contentPercentage >= 0.15, // At least 15% of image
+      contentDimensions: contentWidth > (width * 0.2) && contentHeight > (height * 0.2) // Minimum size
+    };
+
+    const isValidOMR = Object.values(validations).every(v => v === true);
+
+    if (!isValidOMR) {
+      console.log('OMR validation failed:', validations);
+      throw new Error('Unidentified object detected. Please position a valid OMR sheet in the camera view.');
+    }
+
+    // Relax bounds slightly
+    minX = Math.max(0, minX - width * 0.02);
+    maxX = Math.min(width, maxX + width * 0.02);
+    minY = Math.max(0, minY - height * 0.02);
+    maxY = Math.min(height, maxY + height * 0.02);
+    console.log(`Auto-margins: X[${minX}-${maxX}], Y[${minY}-${maxY}]`);
 
     // OMR Layout Configuration - DYNAMIC
     const questionsPerRow = 10;
@@ -147,24 +190,55 @@ export async function processOMRSheet(imageData, totalQuestions = 100) {
         optionBrightness.push({ opt, brightness: avgBrightness, x: bestX, y: bestY });
       }
 
-      // RELATIVE DARKNESS LOGIC
+      // IMPROVED RELATIVE DARKNESS LOGIC WITH MULTIPLE STRATEGIES
       optionBrightness.sort((a, b) => a.brightness - b.brightness);
 
       const darkest = optionBrightness[0];
       const secondDarkest = optionBrightness[1];
-      const avgOthers = (optionBrightness[1].brightness + optionBrightness[2].brightness + optionBrightness[3].brightness) / 3;
+      const thirdDarkest = optionBrightness[2];
+      const lightest = optionBrightness[3];
+
+      // Calculate various metrics
+      const avgAll = (darkest.brightness + secondDarkest.brightness + thirdDarkest.brightness + lightest.brightness) / 4;
+      const avgOthers = (secondDarkest.brightness + thirdDarkest.brightness + lightest.brightness) / 3;
+      const darkestToSecond = secondDarkest.brightness - darkest.brightness;
+      const darkestToAvg = avgOthers - darkest.brightness;
 
       let selectedAnswer = null;
 
-      // Logic: Darkest must be significantly darker
-      if (darkest.brightness < (avgOthers * 0.90)) { // Relaxed threshold (90% of others)
-        selectedAnswer = darkest.opt;
-      } else if (darkest.brightness < 140 && avgOthers > 170) {
+      // Strategy 1: Strong relative darkness (most reliable)
+      // Darkest is at least 8% darker than average of others
+      if (darkest.brightness < (avgOthers * 0.92)) {
         selectedAnswer = darkest.opt;
       }
 
-      // Fallback
-      if (!selectedAnswer && (secondDarkest.brightness - darkest.brightness) > 15) {
+      // Strategy 2: Absolute darkness with contrast
+      // Darkest is absolutely dark AND others are relatively light
+      else if (darkest.brightness < 150 && avgOthers > 165) {
+        selectedAnswer = darkest.opt;
+      }
+
+      // Strategy 3: Clear separation from second darkest
+      // There's a significant gap between darkest and second darkest
+      else if (darkestToSecond > 12 && darkest.brightness < 180) {
+        selectedAnswer = darkest.opt;
+      }
+
+      // Strategy 4: Variance-based detection
+      // Darkest is significantly darker than the average of ALL options
+      else if (darkest.brightness < (avgAll * 0.88)) {
+        selectedAnswer = darkest.opt;
+      }
+
+      // Strategy 5: Lenient threshold for clear marks
+      // Very lenient - if darkest is notably darker than others
+      else if (darkestToAvg > 10 && darkest.brightness < 190) {
+        selectedAnswer = darkest.opt;
+      }
+
+      // Strategy 6: Ultra-lenient fallback for approximate detection
+      // If there's ANY reasonable difference, accept it
+      else if (darkestToSecond > 8 && darkest.brightness < 200) {
         selectedAnswer = darkest.opt;
       }
 

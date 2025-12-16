@@ -14,37 +14,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="min-h-screen">
-          <Toaster
-            position="top-right"
-            containerStyle={{
-              top: 20,
-              right: 20,
-            }}
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-                fontSize: '14px',
-                padding: '12px 16px',
-                maxWidth: '90vw',
-              },
-              success: {
-                duration: 3000,
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
-                },
-              },
-              error: {
-                duration: 4000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
+          <Toaster position="top-center" />
           <Navbar />
           <Routes>
             <Route path="/login" element={<Login />} />

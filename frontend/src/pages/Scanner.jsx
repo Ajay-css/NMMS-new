@@ -72,7 +72,7 @@ const Scanner = () => {
       setScanning(false);
       setScanStatus('Scan completed!');
       toast.success(`Scan completed! Score: ${response.data.result.percentage.toFixed(1)}%`);
-      
+
       // Stop auto-scanning after successful scan
       if (scanIntervalRef.current) {
         clearInterval(scanIntervalRef.current);
@@ -80,10 +80,18 @@ const Scanner = () => {
       }
     } catch (error) {
       console.error('Scan error:', error);
-      setScanStatus('Scanning... Position OMR sheet in view');
-      // Only show error toast if it's a significant error, not just "no sheet detected"
-      if (error.response?.status !== 400) {
-        toast.error(error.response?.data?.message || 'Failed to process OMR sheet', { duration: 2000 });
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to process OMR sheet';
+
+      // Check if it's an unidentified object error
+      if (errorMessage.includes('Unidentified object')) {
+        setScanStatus('⚠️ Unidentified object detected - Position OMR sheet');
+        toast.error(errorMessage, { duration: 2000 });
+      } else {
+        setScanStatus('Scanning... Position OMR sheet in view');
+        // Only show error toast for significant errors
+        if (error.response?.status !== 400) {
+          toast.error(errorMessage, { duration: 2000 });
+        }
       }
       // Continue scanning on error - don't stop the process
     } finally {
@@ -95,7 +103,7 @@ const Scanner = () => {
   useEffect(() => {
     if (scanning && selectedAnswerKey) {
       setScanStatus('Scanning... Position OMR sheet in view');
-      
+
       // Start auto-scanning every 2 seconds (only if not currently processing)
       scanIntervalRef.current = setInterval(() => {
         // Only scan if not currently processing a previous scan
@@ -145,7 +153,7 @@ const Scanner = () => {
           {/* Scanner Section */}
           <div className="card">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Scan OMR Sheet</h2>
-            
+
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -196,11 +204,10 @@ const Scanner = () => {
                       />
                       {/* Scanning overlay */}
                       <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4">
-                        <div className={`p-2 sm:p-3 rounded-lg ${
-                          isProcessing 
-                            ? 'bg-blue-500 text-white' 
+                        <div className={`p-2 sm:p-3 rounded-lg ${isProcessing
+                            ? 'bg-blue-500 text-white'
                             : 'bg-green-500 text-white'
-                        }`}>
+                          }`}>
                           <div className="flex items-center justify-center space-x-2">
                             {isProcessing ? (
                               <>
@@ -223,7 +230,7 @@ const Scanner = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Scan Status */}
                 {scanning && (
                   <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
@@ -232,7 +239,7 @@ const Scanner = () => {
                     </p>
                   </div>
                 )}
-                
+
                 <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
                   {!scanning ? (
                     <button
@@ -307,14 +314,14 @@ const Scanner = () => {
 
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> Ensure good lighting and place the OMR sheet flat. 
+                <strong>Tip:</strong> Ensure good lighting and place the OMR sheet flat.
                 The system automatically processes the sheet - just hold it steady in front of the camera!
               </p>
             </div>
-            
+
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-800">
-                <strong>Auto-Scan Mode:</strong> The scanner continuously captures and processes images. 
+                <strong>Auto-Scan Mode:</strong> The scanner continuously captures and processes images.
                 No need to click any buttons - just position the OMR sheet and wait for results!
               </p>
             </div>
@@ -354,11 +361,10 @@ const Scanner = () => {
               {result.answers.map((answer, index) => (
                 <div
                   key={index}
-                  className={`p-3 rounded-lg text-center text-sm ${
-                    answer.isCorrect
+                  className={`p-3 rounded-lg text-center text-sm ${answer.isCorrect
                       ? 'bg-green-100 text-green-800 border border-green-300'
                       : 'bg-red-100 text-red-800 border border-red-300'
-                  }`}
+                    }`}
                   title={`Q${answer.questionNumber}: Selected ${answer.selectedAnswer || 'N/A'}, Correct ${answer.correctAnswer}`}
                 >
                   <div className="font-semibold">Q{answer.questionNumber}</div>
